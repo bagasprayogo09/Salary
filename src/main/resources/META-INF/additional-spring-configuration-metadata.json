@@ -1,0 +1,21 @@
+{
+  "properties": [
+    {
+      "name": "app.jwtSecret",
+      "type": "java.lang.String",
+      "description": "Secret key untuk signing JWT token (minimal 256 bits / 32 characters untuk HS256)"
+    },
+    {
+      "name": "app.jwtExpirationMs",
+      "type": "java.lang.Integer",
+      "description": "JWT token expiration time dalam milliseconds (default: 86400000 = 24 jam)",
+      "defaultValue": 86400000
+    },
+    {
+      "name": "app.jwtCookieName",
+      "type": "java.lang.String",
+      "description": "Nama cookie untuk menyimpan JWT token",
+      "defaultValue": "salary_session"
+    }
+  ]
+}
