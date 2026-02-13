@@ -8,7 +8,7 @@ import com.salary.backend_salary.security.service.UserDetailsImpl;
 import com.salary.backend_salary.service.auth.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -18,6 +18,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -28,10 +31,14 @@ public class AuthController {
     private final AuthService authService;
     private final AuthenticationManager authenticationManager;
 
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
+    private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder.getContextHolderStrategy();
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -40,69 +47,55 @@ public class AuthController {
                 )
         );
 
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
         context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
+        securityContextHolderStrategy.setContext(context);
 
-        HttpSession session = httpRequest.getSession(true);
-        session.setAttribute("SPRING_SECURITY_CONTEXT", context);
+        securityContextRepository.saveContext(context, httpRequest, httpResponse);
 
-        UserDetailsImpl user = (UserDetailsImpl) authentication.getPrincipal();
-
-        String role = user.getAuthorities()
-                .iterator()
-                .next()
-                .getAuthority()
-                .replace("ROLE_", "");
-
-        return ResponseEntity.ok(
-                new AuthResponse(
-                        user.getId(),
-                        user.getUsername(),
-                        Role.valueOf(role)
-                )
-        );
+        return ResponseEntity.ok(buildAuthResponse(authentication));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest req) {
+    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest req) {
         authService.register(req);
         return ResponseEntity.ok("User registered successfully");
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request) {
-
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            session.invalidate();
-        }
-
-        SecurityContextHolder.clearContext();
+    public ResponseEntity<String> logout(HttpServletRequest request, HttpServletResponse response) {
+        securityContextHolderStrategy.clearContext();
+        request.getSession().invalidate();
         return ResponseEntity.ok("Logged out successfully");
     }
 
     @GetMapping("/me")
     public ResponseEntity<AuthResponse> me(Authentication authentication) {
-
         if (authentication == null || !authentication.isAuthenticated()) {
             return ResponseEntity.status(401).build();
         }
+        return ResponseEntity.ok(buildAuthResponse(authentication));
+    }
 
+    private AuthResponse buildAuthResponse(Authentication authentication) {
         UserDetailsImpl user = (UserDetailsImpl) authentication.getPrincipal();
 
-        String role = user.getAuthorities()
-                .iterator()
-                .next()
-                .getAuthority()
-                .replace("ROLE_", "");
+        Role role = null;
 
-        return ResponseEntity.ok(
-                new AuthResponse(
-                        user.getId(),
-                        user.getUsername(),
-                        Role.valueOf(role)
-                )
+        if (user.getAuthorities() != null && !user.getAuthorities().isEmpty()) {
+            String roleName = user.getAuthorities().iterator().next().getAuthority();
+            String sanitizedRole = roleName.replace("ROLE_", "").toUpperCase();
+            try {
+                role = Role.valueOf(sanitizedRole);
+            } catch (IllegalArgumentException e) {
+                role = null;
+            }
+        }
+
+        return new AuthResponse(
+                user.getId(),
+                user.getUsername(),
+                role
         );
     }
 }

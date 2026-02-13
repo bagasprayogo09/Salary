@@ -54,18 +54,25 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
 
-            .formLogin(form -> form.disable());
+            .logout(logout -> logout
+                    .logoutUrl("/api/auth/logout")
+                    .logoutSuccessHandler((req, res, auth) -> res.setStatus(200)) 
+                    .deleteCookies("JSESSIONID") 
+                    .invalidateHttpSession(true) 
+                    .clearAuthentication(true)
+                );
 
         return http.build();
     }
 
-    @Bean
+   @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true); 
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
