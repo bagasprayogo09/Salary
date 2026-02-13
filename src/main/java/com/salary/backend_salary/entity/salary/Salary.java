@@ -39,7 +39,8 @@ public class Salary {
 
     private BigDecimal amount;
 
-    @OneToMany(mappedBy = "salary", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SalarySlipDetail> slipDetails;
+   @OneToMany(mappedBy = "salary", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SalarySlipDetail> slipDetails = new java.util.ArrayList<>();
+
 }
 

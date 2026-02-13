@@ -20,48 +20,75 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class DocumentScheduller {
-    
+
     private final DocumentRepository documentRepository;
 
     @Scheduled(cron = "*/10 * * * * *")
     @Transactional
     public void generateAutoFinalDocuments() {
+
         System.out.println("---- SCHEDULER START: Scan Dokumen yang belum Final ----");
 
         Pageable limit = PageRequest.of(0, 100);
-        
-        List<Employee> targetEmployees = documentRepository.findTargetsFromDocuments(limit);
+
+        List<Employee> targetEmployees =
+                documentRepository.findTargetsFromDocuments(limit);
 
         if (targetEmployees.isEmpty()) {
             System.out.println("-> Semua dokumen sudah punya FINAL. Aman.");
             return;
         }
 
-        System.out.println("-> Ditemukan " + targetEmployees.size() + " karyawan yang dokumennya belum difinalisasi.");
+        System.out.println("-> Ditemukan " + targetEmployees.size()
+                + " karyawan yang dokumennya belum difinalisasi.");
 
         List<DocumentSubmission> newDocs = new ArrayList<>();
 
         for (Employee emp : targetEmployees) {
             try {
-                Optional<DocumentSubmission> lastDocOpt = documentRepository.findTopByEmployeeIdOrderByCreatedAtDesc(emp.getId());
-                
+
+                Optional<DocumentSubmission> lastDocOpt =
+                        documentRepository
+                        .findTopByEmployeeIdOrderByCreatedAtDesc(emp.getId());
+
                 if (lastDocOpt.isEmpty()) continue;
 
                 DocumentSubmission lastDoc = lastDocOpt.get();
-                String finalType = lastDoc.getDocumentType();
-                String extension = "csv".equalsIgnoreCase(finalType) ? ".csv" : ".txt";
-                
-                String finalFilename = "AUTO_FINAL_" + emp.getNpp() + "_" + System.currentTimeMillis() + extension;
-                
+                String originalFilename = lastDoc.getFilename();
+
+                if (originalFilename == null || originalFilename.isBlank()) {
+                    continue;
+                }
+
+                String baseName;
+                String extension;
+
+                int dotIndex = originalFilename.lastIndexOf(".");
+
+                if (dotIndex > 0) {
+                    baseName = originalFilename.substring(0, dotIndex);
+                    extension = originalFilename.substring(dotIndex);
+                } else {
+                    baseName = originalFilename;
+                    extension = "";
+                }
+
+                if (baseName.toUpperCase().endsWith("_FINAL")) {
+                    baseName = baseName.substring(0, baseName.length() - 6);
+                }
+
+                String finalFilename = baseName + "_FINAL" + extension;
+
                 DocumentSubmission doc = new DocumentSubmission();
                 doc.setEmployee(emp);
                 doc.setFilename(finalFilename);
-                doc.setDocumentType(finalType); 
-                doc.setDocumentContent("");     
+                doc.setDocumentType(lastDoc.getDocumentType());
+                doc.setDocumentContent("");
                 doc.setCreatedAt(LocalDateTime.now());
-                doc.setCreatedBy(null);         
+                doc.setCreatedBy(null);
 
                 newDocs.add(doc);
+
                 System.out.println("   [CREATE] " + finalFilename);
 
             } catch (Exception e) {
@@ -71,7 +98,8 @@ public class DocumentScheduller {
 
         if (!newDocs.isEmpty()) {
             documentRepository.saveAll(newDocs);
-            System.out.println("---- BATCH SELESAI: " + newDocs.size() + " dokumen dibuat ----");
+            System.out.println("---- BATCH SELESAI: "
+                    + newDocs.size() + " dokumen dibuat ----");
         }
     }
 }

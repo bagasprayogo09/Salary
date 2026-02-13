@@ -15,8 +15,21 @@ public interface DocumentRepository extends JpaRepository<DocumentSubmission, Lo
 
     Optional<DocumentSubmission> findTopByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
 
-    @Query("SELECT DISTINCT d.employee FROM DocumentSubmission d " +
-           "WHERE UPPER(d.filename) NOT LIKE '%FINAL%' " +
-           "AND NOT EXISTS (SELECT d2 FROM DocumentSubmission d2 WHERE d2.employee = d.employee AND UPPER(d2.filename) LIKE '%FINAL%')")
-    List<Employee> findTargetsFromDocuments(Pageable pageable);
+    @Query("""
+            SELECT e
+            FROM Employee e
+            WHERE EXISTS (
+                SELECT d
+                FROM DocumentSubmission d
+                WHERE d.employee = e
+                AND d.createdAt = (
+                    SELECT MAX(d2.createdAt)
+                    FROM DocumentSubmission d2
+                    WHERE d2.employee = e
+                )
+                AND UPPER(d.filename) NOT LIKE '%FINAL%'
+            )
+            """)
+List<Employee> findTargetsFromDocuments(Pageable pageable);
+
 }

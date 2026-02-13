@@ -25,21 +25,21 @@ import com.salary.backend_salary.vm.employee.EmployeeVM;
 
 import lombok.RequiredArgsConstructor;
 
-    @RestController
-    @RequestMapping("/api/employees")
-    @RequiredArgsConstructor
-    public class EmployeeController {
+@RestController
+@RequestMapping("/api/employees")
+@RequiredArgsConstructor
+public class EmployeeController {
         
-        private final EmployeeService employeeService;
+    private final EmployeeService employeeService;
 
-        @PostMapping
-        @PreAuthorize("hasRole('ADMIN')")
-        public ResponseEntity<EmployeeDPO> createEmployee(
-                @RequestBody EmployeeRequestVM vm,
-                @AuthenticationPrincipal UserDetailsImpl userDetails) {
-            if (userDetails != null) {
-                vm.setSubmitById(userDetails.getId());
-            }
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<EmployeeDPO> createEmployee(
+        @RequestBody EmployeeRequestVM vm,
+        @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (userDetails != null) {
+            vm.setSubmitById(userDetails.getId());
+        }
 
             EmployeeDPO created = employeeService.createEmployee(vm);
             return new ResponseEntity<>(created, HttpStatus.CREATED);

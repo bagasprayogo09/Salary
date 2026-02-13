@@ -1,8 +1,0 @@
-com/salary/backend_salary/entity/audit/QAudit.class
-com/salary/backend_salary/entity/departmen/QDepartment.class
-com/salary/backend_salary/entity/salary/QSalary.class
-com/salary/backend_salary/entity/employee/QEmployee.class
-com/salary/backend_salary/entity/salary/QSalaryComponent.class
-com/salary/backend_salary/entity/appusers/QAppUser.class
-com/salary/backend_salary/entity/employee/QEmployeeSalaryComponent.class
-com/salary/backend_salary/entity/salary/QSalarySlipDetail.class
