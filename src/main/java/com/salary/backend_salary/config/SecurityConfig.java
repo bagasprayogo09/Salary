@@ -13,6 +13,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.web.cors.*;
 
 @Configuration
@@ -32,38 +33,37 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable()) 
+    http
+        .csrf(csrf -> csrf
+            .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            .ignoringRequestMatchers("/api/auth/login", "/api/auth/register")
+        )
 
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
-            )
+        .sessionManagement(session -> session
+            .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+            .sessionFixation(sessionFixation -> sessionFixation.migrateSession())
+        )
 
-            .exceptionHandling(ex -> ex
-                .authenticationEntryPoint((req, res, e) -> {
-                    res.setContentType("application/json");
-                    res.setStatus(401);
-                    res.getWriter().write("{\"error\":\"Unauthorized\"}");
-                })
-            )
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+            .anyRequest().authenticated()
+        )
 
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
-                .anyRequest().authenticated()
-            )
+        .logout(logout -> logout
+            .logoutUrl("/api/auth/logout")
+            .deleteCookies("JSESSIONID")
+            .invalidateHttpSession(true)
+            .clearAuthentication(true)
+            .logoutSuccessHandler((req, res, auth) -> {
+                res.setStatus(200);
+            })
+        );
 
-            .logout(logout -> logout
-                    .logoutUrl("/api/auth/logout")
-                    .logoutSuccessHandler((req, res, auth) -> res.setStatus(200)) 
-                    .deleteCookies("JSESSIONID") 
-                    .invalidateHttpSession(true) 
-                    .clearAuthentication(true)
-                );
-
-        return http.build();
+    return http.build();
     }
+
 
    @Bean
     public CorsConfigurationSource corsConfigurationSource() {

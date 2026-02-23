@@ -129,7 +129,6 @@
                     .map(this::mapEntityToDpo);
         }
 
-        // helper 
         private void mapVmToEntity(EmployeeRequestVM vm, Employee employee, AppUser actor) {
             employee.setName(vm.getName());
             employee.setPosition(vm.getPosition());
