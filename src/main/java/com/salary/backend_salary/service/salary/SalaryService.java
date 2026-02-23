@@ -213,7 +213,7 @@ public class SalaryService {
 
     private String formatCurrency(BigDecimal amount) {
         return NumberFormat
-                .getCurrencyInstance(new Locale("id", "ID"))
+                .getCurrencyInstance(Locale.of("id", "ID"))
                 .format(amount);
     }
 
