@@ -2,12 +2,7 @@ package com.salary.backend_salary.controller.approval;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.salary.backend_salary.dpo.employee.EmployeeDPO;
 import com.salary.backend_salary.service.employee.ApprovalService;
@@ -20,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('APPROVER')")
 public class ApprovalController {
+    
     private final ApprovalService approvalService;
 
     @PutMapping("/employees/{id}")
@@ -30,15 +26,14 @@ public class ApprovalController {
         EmployeeDPO result = approvalService.processApproval(id, vm);
 
         if (result == null) {
-            return ResponseEntity.ok().body("Data has been permanently deleted (APPROVED DELETE).");
+            return ResponseEntity.noContent().build(); 
         }
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(result); 
     }
 
     @GetMapping("/employees/{id}")
-    public EmployeeDPO getDetail(@PathVariable Long id) {
-    return approvalService.getDetail(id);
-}
-
+    public ResponseEntity<EmployeeDPO> getDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(approvalService.getDetail(id));
+    }
 }
