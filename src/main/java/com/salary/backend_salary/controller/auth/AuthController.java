@@ -1,9 +1,18 @@
 package com.salary.backend_salary.controller.auth;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextHolderStrategy;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.web.bind.annotation.*;
+
 import com.salary.backend_salary.dto.auth.AuthResponse;
 import com.salary.backend_salary.dto.auth.LoginRequest;
 import com.salary.backend_salary.dto.auth.RegisterRequest;
-import com.salary.backend_salary.enums.Role;
 import com.salary.backend_salary.security.service.UserDetailsImpl;
 import com.salary.backend_salary.service.auth.AuthService;
 
@@ -11,17 +20,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.context.SecurityContextHolderStrategy;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -41,13 +39,10 @@ public class AuthController {
             HttpServletResponse httpResponse) {
 
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.username(),
-                        request.password()
-                )
+                new UsernamePasswordAuthenticationToken(request.username(), request.password())
         );
 
-        SecurityContext context = securityContextHolderStrategy.createEmptyContext();
+        var context = securityContextHolderStrategy.createEmptyContext();
         context.setAuthentication(authentication);
         securityContextHolderStrategy.setContext(context);
 
@@ -62,12 +57,6 @@ public class AuthController {
         return ResponseEntity.ok("User registered successfully");
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(HttpServletRequest request, HttpServletResponse response) {
-        securityContextHolderStrategy.clearContext();
-        request.getSession().invalidate();
-        return ResponseEntity.ok("Logged out successfully");
-    }
 
     @GetMapping("/me")
     public ResponseEntity<AuthResponse> me(Authentication authentication) {
@@ -78,24 +67,19 @@ public class AuthController {
     }
 
     private AuthResponse buildAuthResponse(Authentication authentication) {
-        UserDetailsImpl user = (UserDetailsImpl) authentication.getPrincipal();
-
-        Role role = null;
-
-        if (user.getAuthorities() != null && !user.getAuthorities().isEmpty()) {
-            String roleName = user.getAuthorities().iterator().next().getAuthority();
-            String sanitizedRole = roleName.replace("ROLE_", "").toUpperCase();
-            try {
-                role = Role.valueOf(sanitizedRole);
-            } catch (IllegalArgumentException e) {
-                role = null;
-            }
+        if (authentication.getPrincipal() instanceof UserDetailsImpl userDetails) {
+            
+            var role = userDetails.getAuthorities().stream()
+                .findFirst()
+                .map(auth -> auth.getAuthority().replace("ROLE_", ""))
+                .orElse("USER"); 
+            
+            return new AuthResponse(
+                userDetails.getId(),
+                userDetails.getUsername(),
+                com.salary.backend_salary.enums.Role.valueOf(role) 
+            );
         }
-
-        return new AuthResponse(
-                user.getId(),
-                user.getUsername(),
-                role
-        );
+        throw new RuntimeException("Principal is not instance of UserDetailsImpl");
     }
 }
