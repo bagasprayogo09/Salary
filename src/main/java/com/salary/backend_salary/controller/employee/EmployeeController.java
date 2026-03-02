@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.salary.backend_salary.dpo.employee.EmployeeDPO;
 import com.salary.backend_salary.security.service.UserDetailsImpl;
@@ -31,7 +32,10 @@ public class EmployeeController {
             @RequestBody EmployeeRequestVM vm,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         
-        if (userDetails == null) throw new RuntimeException("Unauthorized");
+        if (userDetails == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+        
         vm.setSubmitById(userDetails.getId());
 
         var created = employeeService.createEmployee(vm);
@@ -53,7 +57,10 @@ public class EmployeeController {
             @RequestBody EmployeeRequestVM vm,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
         
-        if (userDetails == null) throw new RuntimeException("Unauthorized");
+        if (userDetails == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
+        
         vm.setSubmitById(userDetails.getId());
         
         var updated = employeeService.updateEmployee(id, vm);
@@ -66,9 +73,10 @@ public class EmployeeController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails) { 
         
-        if (userDetails == null) throw new RuntimeException("Unauthorized");
+        if (userDetails == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User authentication required");
+        }
 
-        
         employeeService.deleteEmployee(id, userDetails.getId());
         
         return ResponseEntity.noContent().build();

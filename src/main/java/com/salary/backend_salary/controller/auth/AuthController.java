@@ -80,6 +80,6 @@ public class AuthController {
                 com.salary.backend_salary.enums.Role.valueOf(role) 
             );
         }
-        throw new RuntimeException("Principal is not instance of UserDetailsImpl");
+        throw new IllegalStateException("Principal is not instance of UserDetailsImpl");
     }
 }

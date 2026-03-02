@@ -28,6 +28,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
 
+    private static final String MODULE_EMPLOYEE = "EMPLOYEE";
+    private static final String ERROR_EMPLOYEE_NOT_FOUND = "Employee not found";
+
     private final EmployeeRepository employeeRepository;
     private final DepartmenRepository departmenRepository;
     private final UserRepository userRepository;
@@ -50,7 +53,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         var saved = employeeRepository.save(employee);
         
-        auditService.logAudit("EMPLOYEE", saved.getId(), "REQUEST_CREATE", null, saved, actor);
+        auditService.logAudit(MODULE_EMPLOYEE, saved.getId(), "REQUEST_CREATE", null, saved, actor);
 
         return employeeMapper.toDpo(saved);
     }
@@ -59,7 +62,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public EmployeeDPO updateEmployee(Long id, EmployeeRequestVM vm) {
         var employee = employeeRepository.findWithDetailsById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new RuntimeException(ERROR_EMPLOYEE_NOT_FOUND));
 
         var actor = fetchUser(vm.getSubmitById());
 
@@ -82,7 +85,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         var updated = employeeRepository.save(employee);
         
-        auditService.logAudit("EMPLOYEE", updated.getId(), "REQUEST_UPDATE", oldState, updated, actor);
+        auditService.logAudit(MODULE_EMPLOYEE, updated.getId(), "REQUEST_UPDATE", oldState, updated, actor);
 
         return employeeMapper.toDpo(updated);
     }
@@ -91,7 +94,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     public void deleteEmployee(Long id, Long submitterId) {
         var employee = employeeRepository.findWithDetailsById(id)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new RuntimeException(ERROR_EMPLOYEE_NOT_FOUND));
 
         var actor = fetchUser(submitterId);
         
@@ -103,7 +106,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         var saved = employeeRepository.save(employee);
         
-        auditService.logAudit("EMPLOYEE", id, "REQUEST_DELETE", oldState, saved, actor);
+        auditService.logAudit(MODULE_EMPLOYEE, id, "REQUEST_DELETE", oldState, saved, actor);
     }
 
     @Override
@@ -111,7 +114,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public EmployeeDPO getEmployeeById(Long id) {
         return employeeRepository.findWithDetailsById(id)
                 .map(employeeMapper::toDpo)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new RuntimeException(ERROR_EMPLOYEE_NOT_FOUND));
     }
 
     @Override
@@ -122,7 +125,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         if (vm != null) {
             if (isValid(vm.getName()))
-                builder.and(qEmployee.name.containsIgnoreCase(vm.getName())); // contains lebih fleksibel
+                builder.and(qEmployee.name.containsIgnoreCase(vm.getName())); 
             if (isValid(vm.getPosition()))
                 builder.and(qEmployee.position.containsIgnoreCase(vm.getPosition()));
             if (isValid(vm.getEmail()))
@@ -137,7 +140,6 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .map(employeeMapper::toDpo);
     }
 
-    // Helper Methods untuk meringkas kode
     private boolean isValid(String text) {
         return text != null && !text.isBlank();
     }

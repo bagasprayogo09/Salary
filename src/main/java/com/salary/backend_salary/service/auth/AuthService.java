@@ -1,4 +1,5 @@
 package com.salary.backend_salary.service.auth;
+
 import org.springframework.stereotype.Service;
 
 import com.salary.backend_salary.dto.auth.AuthResponse;
@@ -10,6 +11,7 @@ import com.salary.backend_salary.repository.user.UserRepository;
 import com.salary.backend_salary.security.service.UserDetailsImpl;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,6 +19,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -26,26 +31,35 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    
+    private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
-    public AuthResponse login(LoginRequest req, HttpServletRequest request) {
+    public AuthResponse login(LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        req.username(),
-                        req.password()
-                )
-        );
+        var authenticationToken = new UsernamePasswordAuthenticationToken(req.username(), req.password());
+        Authentication authentication = authenticationManager.authenticate(authenticationToken);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
 
-        request.getSession(true);
+        securityContextRepository.saveContext(context, request, response);
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetailsImpl userDetails)) {
+            throw new IllegalStateException("Autentikasi gagal atau principal tidak valid");
+        }
 
-        String roleStr = userDetails.getAuthorities()
-                .iterator().next().getAuthority().replace("ROLE_", "");
+        if (userDetails.getAuthorities() == null || userDetails.getAuthorities().isEmpty()) {
+            throw new IllegalStateException("User tidak memiliki akses/role");
+        }
+
+        String authority = userDetails.getAuthorities().iterator().next().getAuthority();
+        if (authority == null) {
+            throw new IllegalStateException("Role pada user bernilai null");
+        }
+
+        String roleStr = authority.replace("ROLE_", "");
 
         return new AuthResponse(
                 userDetails.getId(),
@@ -55,11 +69,11 @@ public class AuthService {
     }
 
     public AppUser register(RegisterRequest req) {
-        if (userRepository.existsByUsername(req.username())) {
-            throw new RuntimeException("Username sudah dipakai!");
+        if (Boolean.TRUE.equals(userRepository.existsByUsername(req.username()))) {
+            throw new IllegalArgumentException("Username sudah dipakai!");
         }
 
-        AppUser user = new AppUser();
+        var user = new AppUser(); 
         user.setUsername(req.username());
         user.setPassword(passwordEncoder.encode(req.password()));
         user.setRole(req.role());
