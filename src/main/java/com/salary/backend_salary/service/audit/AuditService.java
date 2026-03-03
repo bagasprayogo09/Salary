@@ -11,9 +11,11 @@ import com.salary.backend_salary.entity.audit.Audit;
 import com.salary.backend_salary.repository.audit.AuditRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuditService {
 
     private final AuditRepository auditRepository;
@@ -43,19 +45,17 @@ public class AuditService {
 
             auditRepository.save(audit);
 
-            System.out.println(
-                "[AUDIT ASYNC] thread=" 
-                + Thread.currentThread().getName()
-                + " entity=" + entityName
-                + " action=" + action
-            );
+          
+            log.info("[AUDIT ASYNC] thread={} entity={} action={}", 
+                    Thread.currentThread().getName(), 
+                    entityName, 
+                    action);
 
         } catch (Exception e) {
-            System.err.println("[AUDIT ERROR] " + e.getMessage());
+            
+            log.error("[AUDIT ERROR] Failed to log audit: {}", e.getMessage(), e);
         }
     }
-
-
 
     @Transactional(readOnly = true)
     public List<Audit> getAllAudits() {

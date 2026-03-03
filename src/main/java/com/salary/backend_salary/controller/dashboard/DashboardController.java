@@ -32,8 +32,6 @@ public class DashboardController {
         return dashboardService
                 .getEmployees(ApprovalStatus.APPROVED, limit)
                 .thenApply(ResponseEntity::ok)
-                .exceptionally(ex -> {
-                    return ResponseEntity.internalServerError().build();
-                });
+                .exceptionally(ex -> ResponseEntity.internalServerError().build());
     }
 }

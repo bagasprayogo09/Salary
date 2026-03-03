@@ -50,7 +50,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                     (Class<Comparable<?>>) (Class<?>) Comparable.class
                 );
                 
-                query.orderBy(new OrderSpecifier<Comparable<?>>(
+               query.orderBy(new OrderSpecifier<>(
                     order.isAscending() ? Order.ASC : Order.DESC, 
                     path
                 ));

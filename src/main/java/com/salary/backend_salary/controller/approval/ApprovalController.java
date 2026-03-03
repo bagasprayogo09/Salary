@@ -19,7 +19,7 @@ public class ApprovalController {
     private final ApprovalService approvalService;
 
     @PutMapping("/employees/{id}")
-    public ResponseEntity<?> processApproval(
+    public ResponseEntity<EmployeeDPO> processApproval(
             @PathVariable Long id,
             @RequestBody ApprovalRequestVM vm) {
         

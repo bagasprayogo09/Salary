@@ -68,13 +68,7 @@ public class Employee {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    // --- RELASI KE ANAK (CHILDREN) ---
-
-    // // Relasi ke Dokumen
-    // @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
-    // private List<DocumentSubmission> documents;
-
-    // Relasi ke Komponen Gaji
+   
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private List<EmployeeSalaryComponent> salaryComponents;

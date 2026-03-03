@@ -15,11 +15,14 @@ import com.salary.backend_salary.repository.user.UserRepository;
 import com.salary.backend_salary.service.audit.AuditService;
 import com.salary.backend_salary.vm.employee.ApprovalRequestVM;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class ApprovalServiceImpl implements ApprovalService {
+
+    private static final String ENTITY_NAME = "EMPLOYEE";
 
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
@@ -31,14 +34,14 @@ public class ApprovalServiceImpl implements ApprovalService {
     public EmployeeDPO processApproval(Long employeeId, ApprovalRequestVM vm) {
         
         if (vm.getStatus() != ApprovalStatus.APPROVED && vm.getStatus() != ApprovalStatus.REJECTED) {
-            throw new RuntimeException("Invalid approval action");
+            throw new IllegalArgumentException("Invalid approval action: " + vm.getStatus());
         }
 
         var employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + employeeId));
 
         var approver = userRepository.findById(vm.getApproverId())
-                .orElseThrow(() -> new RuntimeException("Approver user not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Approver user not found with ID: " + vm.getApproverId()));
 
         var oldState = createAuditSnapshot(employee);
 
@@ -58,7 +61,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                 employee.setStatus(isApproved ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED);
                 yield isApproved ? "APPROVE_UPDATE" : "REJECT_UPDATE";
             }
-            default -> throw new RuntimeException("Employee not in pending state");
+            default -> throw new IllegalStateException("Employee is not in a pending state. Current status: " + currentStatus);
         };
 
         employee.setApprovedBy(approver.getId());
@@ -66,7 +69,7 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         var saved = employeeRepository.save(employee);
 
-        auditService.logAudit("EMPLOYEE", saved.getId(), auditAction, oldState, saved, approver);
+        auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
         
         return employeeMapper.toDpo(saved);
     }
@@ -76,7 +79,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         
         if (isApproved) {
             auditAction = "APPROVE_DELETE";
-            auditService.logAudit("EMPLOYEE", employee.getId(), auditAction, oldState, null, approver);
+            auditService.logAudit(ENTITY_NAME, employee.getId(), auditAction, oldState, null, approver);
             
             employeeRepository.delete(employee);
             return null; 
@@ -88,7 +91,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             
             var saved = employeeRepository.save(employee);
             
-            auditService.logAudit("EMPLOYEE", saved.getId(), auditAction, oldState, saved, approver);
+            auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
             return employeeMapper.toDpo(saved);
         }
     }
@@ -107,6 +110,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     public EmployeeDPO getDetail(Long employeeId) {
         return employeeRepository.findById(employeeId)
                 .map(employeeMapper::toDpo)
-                .orElseThrow(() -> new RuntimeException("Employee not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Employee not found with ID: " + employeeId));
     }
 }

@@ -28,6 +28,7 @@ import com.salary.backend_salary.repository.employee.EmployeeRepository;
 import com.salary.backend_salary.repository.salary.SalaryComponentRepository;
 import com.salary.backend_salary.repository.salary.SalaryRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -82,23 +83,24 @@ public class SalaryService {
                 .fetchOne();
 
         if (result == null) {
-            throw new RuntimeException("Salary not found with id: " + id);
+            throw new EntityNotFoundException("Salary not found with id: " + id);
         }
 
         return mapToResponse(result);
     }
 
-    //Create
+    // Create
     @Transactional
     public SalaryResponse createSalary(CreateSalaryRequest request) {
 
         Employee employee = employeeRepository.findById(request.getEmployeeId())
                 .orElseThrow(() ->
-                        new RuntimeException("Employee not found with id: " + request.getEmployeeId()));
+                        new EntityNotFoundException("Employee not found with id: " + request.getEmployeeId()));
 
         salaryRepository.findByEmployee_IdAndMonth(request.getEmployeeId(), request.getMonth())
-                .ifPresent(s ->
-                        { throw new RuntimeException("Salary already exists for this month"); });
+                .ifPresent(s -> { 
+                    throw new IllegalArgumentException("Salary already exists for this month"); 
+                });
 
         List<SalaryComponent> components = salaryComponentRepository.findAll();
 
@@ -119,7 +121,7 @@ public class SalaryService {
 
         Salary salary = salaryRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Salary not found with id: " + id));
+                        new EntityNotFoundException("Salary not found with id: " + id));
 
         if (!salary.getMonth().equals(request.getMonth())) {
 
@@ -128,7 +130,7 @@ public class SalaryService {
                     request.getMonth()
             ).ifPresent(s -> {
                 if (!s.getId().equals(id)) {
-                    throw new RuntimeException("Salary already exists for this month");
+                    throw new IllegalArgumentException("Salary already exists for this month");
                 }
             });
 
@@ -148,15 +150,14 @@ public class SalaryService {
     // Delete
     @Transactional
     public void deleteSalary(Long id) {
-
         Salary salary = salaryRepository.findById(id)
                 .orElseThrow(() ->
-                        new RuntimeException("Salary not found with id: " + id));
+                        new EntityNotFoundException("Salary not found with id: " + id));
 
         salaryRepository.delete(salary);
     }
 
-    //Helper
+    // Helper
 
     private BooleanBuilder buildFilter(SalaryFilterRequest filter,
                                        QSalary salary,
@@ -215,29 +216,42 @@ public class SalaryService {
         return NumberFormat
                 .getCurrencyInstance(Locale.of("id", "ID"))
                 .format(amount);
-    }
+    }   
 
-    public class QuerydslSortUtil {
+    public static class QuerydslSortUtil {
 
-    public static OrderSpecifier<?>[] getOrderSpecifiers(
-            Sort sort,
-            QSalary salary,
-            QEmployee employee
-    ) {
-        return sort.stream()
-                .map(order -> {
-                    switch (order.getProperty()) {
-                        case "month":
-                            return order.isAscending() ? salary.month.asc() : salary.month.desc();
-                        case "amount":
-                            return order.isAscending() ? salary.amount.asc() : salary.amount.desc();
-                        case "employeeName":
-                            return order.isAscending() ? employee.name.asc() : employee.name.desc();
-                        default:
-                            return order.isAscending() ? salary.id.asc() : salary.id.desc();
-                    }
-                })
-                .toArray(OrderSpecifier[]::new);
+        private QuerydslSortUtil() {
+            throw new IllegalStateException("Utility class");
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        public static OrderSpecifier<Comparable>[] getOrderSpecifiers(
+                Sort sort,
+                QSalary salary,
+                QEmployee employee
+        ) {
+            return sort.stream()
+                    .map(order -> {
+                        OrderSpecifier<?> orderSpecifier;
+
+                        switch (order.getProperty()) {
+                            case "month":
+                                orderSpecifier = order.isAscending() ? salary.month.asc() : salary.month.desc();
+                                break;
+                            case "amount":
+                                orderSpecifier = order.isAscending() ? salary.amount.asc() : salary.amount.desc();
+                                break;
+                            case "employeeName":
+                                orderSpecifier = order.isAscending() ? employee.name.asc() : employee.name.desc();
+                                break;
+                            default:
+                                orderSpecifier = order.isAscending() ? salary.id.asc() : salary.id.desc();
+                                break;
+                        }
+
+                        return (OrderSpecifier<Comparable>) orderSpecifier;
+                    })
+                    .toArray(OrderSpecifier[]::new);
+        }
     }
-}
 }
