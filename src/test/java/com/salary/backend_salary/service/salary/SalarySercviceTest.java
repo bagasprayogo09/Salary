@@ -163,7 +163,8 @@ class SalaryServiceTest {
 
         verify(salaryRepository).delete(mockSalary);
     }
-@Test
+    
+    @Test
     @SuppressWarnings("unchecked")
     void testGetSalaryById_Success() {
         com.salary.backend_salary.entity.salary.QSalary qSalary = com.salary.backend_salary.entity.salary.QSalary.salary;
