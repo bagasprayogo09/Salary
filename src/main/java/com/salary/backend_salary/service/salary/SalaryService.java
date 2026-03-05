@@ -19,13 +19,14 @@ import com.salary.backend_salary.dto.salary.CreateSalaryRequest;
 import com.salary.backend_salary.dto.salary.SalaryFilterRequest;
 import com.salary.backend_salary.dto.salary.SalaryResponse;
 import com.salary.backend_salary.entity.employee.Employee;
+import com.salary.backend_salary.entity.employee.EmployeeSalaryComponent;
 import com.salary.backend_salary.entity.employee.QEmployee;
 import com.salary.backend_salary.entity.salary.QSalary;
 import com.salary.backend_salary.entity.salary.Salary;
 import com.salary.backend_salary.entity.salary.SalaryComponent;
 import com.salary.backend_salary.entity.salary.SalarySlipDetail;
 import com.salary.backend_salary.repository.employee.EmployeeRepository;
-import com.salary.backend_salary.repository.salary.SalaryComponentRepository;
+import com.salary.backend_salary.repository.employee.EmployeeSalaryComponentRepository;
 import com.salary.backend_salary.repository.salary.SalaryRepository;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -38,10 +39,9 @@ public class SalaryService {
 
     private final SalaryRepository salaryRepository;
     private final EmployeeRepository employeeRepository;
-    private final SalaryComponentRepository salaryComponentRepository;
+    private final EmployeeSalaryComponentRepository employeeComponentRepository;
     private final JPAQueryFactory queryFactory;
 
-    // Get All
     public Page<SalaryResponse> getAllSalaries(SalaryFilterRequest filter, Pageable pageable) {
 
         QSalary salary = QSalary.salary;
@@ -70,7 +70,6 @@ public class SalaryService {
         );
     }
 
-    // Get By Id
     public SalaryResponse getSalaryById(Long id) {
 
         QSalary salary = QSalary.salary;
@@ -89,7 +88,6 @@ public class SalaryService {
         return mapToResponse(result);
     }
 
-    // Create
     @Transactional
     public SalaryResponse createSalary(CreateSalaryRequest request) {
 
@@ -102,20 +100,24 @@ public class SalaryService {
                     throw new IllegalArgumentException("Salary already exists for this month"); 
                 });
 
-        List<SalaryComponent> components = salaryComponentRepository.findAll();
+        List<EmployeeSalaryComponent> employeeComponents = 
+                employeeComponentRepository.findByEmployee_Id(employee.getId());
+
+        if (employeeComponents.isEmpty()) {
+            throw new IllegalArgumentException("Employee does not have any salary components setup");
+        }
 
         Salary salary = new Salary();
         salary.setEmployee(employee);
         salary.setMonth(request.getMonth());
 
-        buildSalaryDetails(salary, components);
+        buildSalaryDetails(salary, employeeComponents);
 
         Salary saved = salaryRepository.save(salary);
 
         return mapToResponse(saved);
     }
 
-    // Update
     @Transactional
     public SalaryResponse updateSalary(Long id, CreateSalaryRequest request) {
 
@@ -139,15 +141,16 @@ public class SalaryService {
 
         salary.getSlipDetails().clear();
 
-        List<SalaryComponent> components = salaryComponentRepository.findAll();
-        buildSalaryDetails(salary, components);
+        List<EmployeeSalaryComponent> employeeComponents = 
+                employeeComponentRepository.findByEmployee_Id(salary.getEmployee().getId());
+
+        buildSalaryDetails(salary, employeeComponents);
 
         Salary updated = salaryRepository.save(salary);
 
         return mapToResponse(updated);
     }
 
-    // Delete
     @Transactional
     public void deleteSalary(Long id) {
         Salary salary = salaryRepository.findById(id)
@@ -157,7 +160,6 @@ public class SalaryService {
         salaryRepository.delete(salary);
     }
 
-    // Helper
 
     private BooleanBuilder buildFilter(SalaryFilterRequest filter,
                                        QSalary salary,
@@ -176,20 +178,26 @@ public class SalaryService {
         return builder;
     }
 
-    private void buildSalaryDetails(Salary salary, List<SalaryComponent> components) {
+    private void buildSalaryDetails(Salary salary, List<EmployeeSalaryComponent> employeeComponents) {
 
         BigDecimal total = BigDecimal.ZERO;
 
-        for (SalaryComponent component : components) {
+        for (EmployeeSalaryComponent empComp : employeeComponents) {
+
+            SalaryComponent masterComponent = empComp.getSalaryComponent();
 
             SalarySlipDetail detail = new SalarySlipDetail();
             detail.setSalary(salary);
-            detail.setSalaryComponent(component);
-            detail.setAmount(component.getAmount());
+            detail.setSalaryComponent(masterComponent);
+            detail.setAmount(empComp.getAmount()); 
 
             salary.getSlipDetails().add(detail);
 
-            total = total.add(component.getAmount());
+            if (masterComponent.getType() != null && "Deduction".equalsIgnoreCase(masterComponent.getType().trim())) {
+                total = total.subtract(empComp.getAmount()); 
+            } else {
+                total = total.add(empComp.getAmount()); 
+            }
         }
 
         salary.setAmount(total);
@@ -213,6 +221,7 @@ public class SalaryService {
     }
 
     private String formatCurrency(BigDecimal amount) {
+        if (amount == null) return "Rp0,00";
         return NumberFormat
                 .getCurrencyInstance(Locale.of("id", "ID"))
                 .format(amount);
