@@ -8,10 +8,11 @@ import com.salary.backend_salary.dto.salary.SalaryFilterRequest;
 import com.salary.backend_salary.dto.salary.SalaryResponse;
 import com.salary.backend_salary.entity.departmen.Department;
 import com.salary.backend_salary.entity.employee.Employee;
+import com.salary.backend_salary.entity.employee.EmployeeSalaryComponent;
 import com.salary.backend_salary.entity.salary.Salary;
 import com.salary.backend_salary.entity.salary.SalaryComponent;
 import com.salary.backend_salary.repository.employee.EmployeeRepository;
-import com.salary.backend_salary.repository.salary.SalaryComponentRepository;
+import com.salary.backend_salary.repository.employee.EmployeeSalaryComponentRepository;
 import com.salary.backend_salary.repository.salary.SalaryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,8 +43,9 @@ class SalaryServiceTest {
     @Mock
     private EmployeeRepository employeeRepository;
 
+    // PERUBAHAN: Mengganti SalaryComponentRepository menjadi EmployeeSalaryComponentRepository
     @Mock
-    private SalaryComponentRepository salaryComponentRepository;
+    private EmployeeSalaryComponentRepository employeeComponentRepository;
 
     @Mock(answer = org.mockito.Answers.RETURNS_DEEP_STUBS)
     private JPAQueryFactory queryFactory;
@@ -54,6 +56,7 @@ class SalaryServiceTest {
     private Employee mockEmployee;
     private Salary mockSalary;
     private SalaryComponent mockComponent;
+    private EmployeeSalaryComponent mockEmployeeComponent; // PERUBAHAN: Tambahan entitas relasi
     private CreateSalaryRequest createRequest;
 
     @BeforeEach
@@ -79,6 +82,14 @@ class SalaryServiceTest {
         mockComponent.setId(5L);
         mockComponent.setName("Gaji Pokok");
         mockComponent.setAmount(new BigDecimal("5000000"));
+        mockComponent.setType("Allowance"); // Ditambahkan agar sesuai logika baru
+
+        // PERUBAHAN: Menyiapkan data mock untuk EmployeeSalaryComponent
+        mockEmployeeComponent = new EmployeeSalaryComponent();
+        mockEmployeeComponent.setId(1L);
+        mockEmployeeComponent.setEmployee(mockEmployee);
+        mockEmployeeComponent.setSalaryComponent(mockComponent);
+        mockEmployeeComponent.setAmount(new BigDecimal("5000000"));
 
         createRequest = new CreateSalaryRequest();
         createRequest.setEmployeeId(1L);
@@ -89,7 +100,8 @@ class SalaryServiceTest {
     void testCreateSalary_Success() {
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(mockEmployee));
         when(salaryRepository.findByEmployee_IdAndMonth(1L, "2026-02")).thenReturn(Optional.empty());
-        when(salaryComponentRepository.findAll()).thenReturn(List.of(mockComponent));
+        // PERUBAHAN: Menyesuaikan mock repository
+        when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
         SalaryResponse result = salaryService.createSalary(createRequest);
@@ -127,7 +139,8 @@ class SalaryServiceTest {
     @Test
     void testUpdateSalary_Success_SameMonth() {
         when(salaryRepository.findById(100L)).thenReturn(Optional.of(mockSalary));
-        when(salaryComponentRepository.findAll()).thenReturn(List.of(mockComponent));
+        // PERUBAHAN: Menyesuaikan mock repository
+        when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
         SalaryResponse result = salaryService.updateSalary(100L, createRequest);
@@ -143,7 +156,8 @@ class SalaryServiceTest {
         
         when(salaryRepository.findById(100L)).thenReturn(Optional.of(mockSalary));
         when(salaryRepository.findByEmployee_IdAndMonth(1L, "2026-03")).thenReturn(Optional.empty());
-        when(salaryComponentRepository.findAll()).thenReturn(List.of(mockComponent));
+        // PERUBAHAN: Menyesuaikan mock repository
+        when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
         SalaryResponse result = salaryService.updateSalary(100L, createRequest);
