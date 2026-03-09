@@ -2,12 +2,10 @@ package com.salary.backend_salary.service.employee;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -155,23 +153,29 @@ class ApprovalServiceImplTest {
     }
 
     @Test
-    void processApproval_PendingDelete_Approved_ShouldDeleteAndReturnNull() {
+    void processApproval_PendingDelete_Approved_ShouldSoftDeleteAndReturnDpo() {
         employee.setStatus(ApprovalStatus.PENDING_DELETE);
         vm.setStatus(ApprovalStatus.APPROVED);
 
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(employee));
         when(userRepository.findById(99L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.save(any(Employee.class))).thenReturn(employee);
+        when(employeeMapper.toDpo(any(Employee.class))).thenReturn(dpo);
 
         EmployeeDPO result = approvalService.processApproval(1L, vm);
 
-        assertNull(result); 
-        verify(employeeRepository).delete(employee);
-        verify(employeeRepository, never()).save(any());
+        assertNotNull(result);
+        assertEquals("INACTIVE", employee.getStatusemp()); 
+        assertEquals(ApprovalStatus.APPROVED, employee.getStatus());
+        
+        verify(employeeRepository).save(employee);
+        verify(employeeRepository, never()).delete(any()); 
+        
         verify(auditService).logAudit(
-                eq("EMPLOYEE"), eq(1L), eq("APPROVE_DELETE"), any(Employee.class), isNull(), eq(approver)
+                eq("EMPLOYEE"), eq(1L), eq("APPROVE_DELETE"), any(Employee.class), eq(employee), eq(approver)
         );
     }
-
+    
     @Test
     void processApproval_PendingDelete_Rejected_ShouldRevertToApprovedAndReturnDpo() {
         employee.setStatus(ApprovalStatus.PENDING_DELETE);

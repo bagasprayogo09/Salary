@@ -74,15 +74,22 @@ public class ApprovalServiceImpl implements ApprovalService {
         return employeeMapper.toDpo(saved);
     }
 
-    private EmployeeDPO handlePendingDelete(Employee employee, AppUser approver, boolean isApproved, Employee oldState) {
+   private EmployeeDPO handlePendingDelete(Employee employee, AppUser approver, boolean isApproved, Employee oldState) {
         String auditAction;
         
         if (isApproved) {
             auditAction = "APPROVE_DELETE";
-            auditService.logAudit(ENTITY_NAME, employee.getId(), auditAction, oldState, null, approver);
+    
+            employee.setStatusemp("INACTIVE"); 
+            employee.setStatus(ApprovalStatus.APPROVED); 
+            employee.setApprovedBy(approver.getId());
+            employee.setApprovedAt(LocalDateTime.now());
             
-            employeeRepository.delete(employee);
-            return null; 
+            var saved = employeeRepository.save(employee);
+            
+            auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
+            return employeeMapper.toDpo(saved); 
+            
         } else {
             auditAction = "REJECT_DELETE";
             employee.setStatus(ApprovalStatus.APPROVED);
