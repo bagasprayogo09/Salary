@@ -18,6 +18,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.salary.backend_salary.dto.salary.CreateSalaryRequest;
 import com.salary.backend_salary.dto.salary.SalaryFilterRequest;
 import com.salary.backend_salary.dto.salary.SalaryResponse;
+import com.salary.backend_salary.entity.departmen.QDepartment;
 import com.salary.backend_salary.entity.employee.Employee;
 import com.salary.backend_salary.entity.employee.EmployeeSalaryComponent;
 import com.salary.backend_salary.entity.employee.QEmployee;
@@ -47,11 +48,14 @@ public class SalaryService {
         QSalary salary = QSalary.salary;
         QEmployee employee = QEmployee.employee;
 
+        QDepartment departmen = QDepartment.department;
+
         BooleanBuilder builder = buildFilter(filter, salary, employee);
 
         List<Salary> content = queryFactory
                 .selectFrom(salary)
                 .join(salary.employee, employee).fetchJoin()
+                .leftJoin(employee.departmen, departmen).fetchJoin()
                 .where(builder)
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
@@ -178,30 +182,30 @@ public class SalaryService {
         return builder;
     }
 
-    private void buildSalaryDetails(Salary salary, List<EmployeeSalaryComponent> employeeComponents) {
+   private void buildSalaryDetails(Salary salary, List<EmployeeSalaryComponent> employeeComponents) {
+    BigDecimal total = BigDecimal.ZERO;
 
-        BigDecimal total = BigDecimal.ZERO;
+    for (EmployeeSalaryComponent empComp : employeeComponents) {
+        SalaryComponent masterComponent = empComp.getSalaryComponent();
+        
+        BigDecimal amount = empComp.getAmount() != null ? empComp.getAmount() : BigDecimal.ZERO;
 
-        for (EmployeeSalaryComponent empComp : employeeComponents) {
+        SalarySlipDetail detail = new SalarySlipDetail();
+        detail.setSalary(salary);
+        detail.setSalaryComponent(masterComponent);
+        detail.setAmount(amount); 
 
-            SalaryComponent masterComponent = empComp.getSalaryComponent();
+        salary.getSlipDetails().add(detail);
 
-            SalarySlipDetail detail = new SalarySlipDetail();
-            detail.setSalary(salary);
-            detail.setSalaryComponent(masterComponent);
-            detail.setAmount(empComp.getAmount()); 
-
-            salary.getSlipDetails().add(detail);
-
-            if (masterComponent.getType() != null && "Deduction".equalsIgnoreCase(masterComponent.getType().trim())) {
-                total = total.subtract(empComp.getAmount()); 
-            } else {
-                total = total.add(empComp.getAmount()); 
-            }
+        if (masterComponent.getType() != null && "Deduction".equalsIgnoreCase(masterComponent.getType().trim())) {
+            total = total.subtract(amount); 
+        } else {
+            total = total.add(amount); 
         }
-
-        salary.setAmount(total);
     }
+
+    salary.setAmount(total);
+}
 
     private SalaryResponse mapToResponse(Salary salary) {
 
@@ -228,39 +232,25 @@ public class SalaryService {
     }   
 
     public static class QuerydslSortUtil {
-
-        private QuerydslSortUtil() {
-            throw new IllegalStateException("Utility class");
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        public static OrderSpecifier<Comparable>[] getOrderSpecifiers(
-                Sort sort,
-                QSalary salary,
-                QEmployee employee
-        ) {
-            return sort.stream()
-                    .map(order -> {
-                        OrderSpecifier<?> orderSpecifier;
-
-                        switch (order.getProperty()) {
-                            case "month":
-                                orderSpecifier = order.isAscending() ? salary.month.asc() : salary.month.desc();
-                                break;
-                            case "amount":
-                                orderSpecifier = order.isAscending() ? salary.amount.asc() : salary.amount.desc();
-                                break;
-                            case "employeeName":
-                                orderSpecifier = order.isAscending() ? employee.name.asc() : employee.name.desc();
-                                break;
-                            default:
-                                orderSpecifier = order.isAscending() ? salary.id.asc() : salary.id.desc();
-                                break;
-                        }
-
-                        return (OrderSpecifier<Comparable>) orderSpecifier;
-                    })
-                    .toArray(OrderSpecifier[]::new);
-        }
+    private QuerydslSortUtil() {
+        throw new IllegalStateException("Utility class");
     }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static OrderSpecifier<Comparable>[] getOrderSpecifiers(
+            Sort sort, QSalary salary, QEmployee employee) {
+        
+        return sort.stream()
+                .map(order -> {
+                    OrderSpecifier<?> orderSpecifier = switch (order.getProperty()) {
+                        case "month" -> order.isAscending() ? salary.month.asc() : salary.month.desc();
+                        case "amount" -> order.isAscending() ? salary.amount.asc() : salary.amount.desc();
+                        case "employeeName" -> order.isAscending() ? employee.name.asc() : employee.name.desc();
+                        default -> order.isAscending() ? salary.id.asc() : salary.id.desc();
+                    };
+                    return (OrderSpecifier<Comparable>) orderSpecifier;
+                })
+                .toArray(OrderSpecifier[]::new);
+    }
+}
 }

@@ -1,6 +1,6 @@
 package com.salary.backend_salary.service.salary;
 
-import com.querydsl.core.types.Predicate;
+import com.querydsl.core.types.Expression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.salary.backend_salary.dto.salary.CreateSalaryRequest;
@@ -17,6 +17,7 @@ import com.salary.backend_salary.repository.salary.SalaryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,20 +44,24 @@ class SalaryServiceTest {
     @Mock
     private EmployeeRepository employeeRepository;
 
-    // PERUBAHAN: Mengganti SalaryComponentRepository menjadi EmployeeSalaryComponentRepository
     @Mock
     private EmployeeSalaryComponentRepository employeeComponentRepository;
 
-    @Mock(answer = org.mockito.Answers.RETURNS_DEEP_STUBS)
+   @Mock
     private JPAQueryFactory queryFactory;
 
+    @Mock(answer = Answers.RETURNS_SELF)
+    private JPAQuery<Salary> mockSalaryQuery;
+
+    @Mock(answer = Answers.RETURNS_SELF)
+    private JPAQuery<Long> mockCountQuery;
     @InjectMocks
     private SalaryService salaryService;
 
     private Employee mockEmployee;
     private Salary mockSalary;
     private SalaryComponent mockComponent;
-    private EmployeeSalaryComponent mockEmployeeComponent; // PERUBAHAN: Tambahan entitas relasi
+    private EmployeeSalaryComponent mockEmployeeComponent;
     private CreateSalaryRequest createRequest;
 
     @BeforeEach
@@ -82,9 +87,8 @@ class SalaryServiceTest {
         mockComponent.setId(5L);
         mockComponent.setName("Gaji Pokok");
         mockComponent.setAmount(new BigDecimal("5000000"));
-        mockComponent.setType("Allowance"); // Ditambahkan agar sesuai logika baru
+        mockComponent.setType("Allowance");
 
-        // PERUBAHAN: Menyiapkan data mock untuk EmployeeSalaryComponent
         mockEmployeeComponent = new EmployeeSalaryComponent();
         mockEmployeeComponent.setId(1L);
         mockEmployeeComponent.setEmployee(mockEmployee);
@@ -100,7 +104,6 @@ class SalaryServiceTest {
     void testCreateSalary_Success() {
         when(employeeRepository.findById(1L)).thenReturn(Optional.of(mockEmployee));
         when(salaryRepository.findByEmployee_IdAndMonth(1L, "2026-02")).thenReturn(Optional.empty());
-        // PERUBAHAN: Menyesuaikan mock repository
         when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
@@ -139,7 +142,6 @@ class SalaryServiceTest {
     @Test
     void testUpdateSalary_Success_SameMonth() {
         when(salaryRepository.findById(100L)).thenReturn(Optional.of(mockSalary));
-        // PERUBAHAN: Menyesuaikan mock repository
         when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
@@ -156,7 +158,6 @@ class SalaryServiceTest {
         
         when(salaryRepository.findById(100L)).thenReturn(Optional.of(mockSalary));
         when(salaryRepository.findByEmployee_IdAndMonth(1L, "2026-03")).thenReturn(Optional.empty());
-        // PERUBAHAN: Menyesuaikan mock repository
         when(employeeComponentRepository.findByEmployee_Id(1L)).thenReturn(List.of(mockEmployeeComponent));
         when(salaryRepository.save(any(Salary.class))).thenReturn(mockSalary);
 
@@ -177,20 +178,11 @@ class SalaryServiceTest {
 
         verify(salaryRepository).delete(mockSalary);
     }
-    
     @Test
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"}) 
     void testGetSalaryById_Success() {
-        com.salary.backend_salary.entity.salary.QSalary qSalary = com.salary.backend_salary.entity.salary.QSalary.salary;
-        com.salary.backend_salary.entity.employee.QEmployee qEmployee = com.salary.backend_salary.entity.employee.QEmployee.employee;
-
-        JPAQuery<Salary> mockQuery = mock(JPAQuery.class);
-
-        when(queryFactory.selectFrom(qSalary)).thenReturn(mockQuery);
-        when(mockQuery.join(qSalary.employee, qEmployee)).thenReturn(mockQuery);
-        when(mockQuery.fetchJoin()).thenReturn(mockQuery);
-        when(mockQuery.where(any(Predicate.class))).thenReturn(mockQuery);
-        when(mockQuery.fetchOne()).thenReturn(mockSalary);
+        when(queryFactory.selectFrom(any())).thenReturn((JPAQuery) mockSalaryQuery);
+        when(mockSalaryQuery.fetchOne()).thenReturn(mockSalary);
 
         SalaryResponse result = salaryService.getSalaryById(100L);
 
@@ -198,53 +190,30 @@ class SalaryServiceTest {
         assertEquals(100L, result.getId());
     }
 
-    @Test
-    @SuppressWarnings("unchecked")
+   @Test
+    @SuppressWarnings({"unchecked", "rawtypes"}) 
     void testGetSalaryById_NotFound() {
-        com.salary.backend_salary.entity.salary.QSalary qSalary = com.salary.backend_salary.entity.salary.QSalary.salary;
-        com.salary.backend_salary.entity.employee.QEmployee qEmployee = com.salary.backend_salary.entity.employee.QEmployee.employee;
-
-        JPAQuery<Salary> mockQuery = mock(JPAQuery.class);
-
-        when(queryFactory.selectFrom(qSalary)).thenReturn(mockQuery);
-        when(mockQuery.join(qSalary.employee, qEmployee)).thenReturn(mockQuery);
-        when(mockQuery.fetchJoin()).thenReturn(mockQuery);
-        when(mockQuery.where(any(Predicate.class))).thenReturn(mockQuery);
-        when(mockQuery.fetchOne()).thenReturn(null);
+        when(queryFactory.selectFrom(any())).thenReturn((JPAQuery) mockSalaryQuery);
+        when(mockSalaryQuery.fetchOne()).thenReturn(null);
 
         assertThrows(RuntimeException.class, () -> {
             salaryService.getSalaryById(999L);
         });
     }
 
-   @Test
-    @SuppressWarnings("unchecked")
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
     void testGetAllSalaries_Success() {
-        com.salary.backend_salary.entity.salary.QSalary qSalary = com.salary.backend_salary.entity.salary.QSalary.salary;
-        com.salary.backend_salary.entity.employee.QEmployee qEmployee = com.salary.backend_salary.entity.employee.QEmployee.employee;
-
         SalaryFilterRequest filter = new SalaryFilterRequest();
         filter.setMonth("2026-02");
         filter.setEmployeeName("Bagas");
 
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "month"));
 
-        JPAQuery<Salary> mockQuery = mock(JPAQuery.class);
-        when(queryFactory.selectFrom(qSalary)).thenReturn(mockQuery);
-        when(mockQuery.join(qSalary.employee, qEmployee)).thenReturn(mockQuery);
-        when(mockQuery.fetchJoin()).thenReturn(mockQuery);
-        when(mockQuery.where(any(Predicate.class))).thenReturn(mockQuery);
-        when(mockQuery.offset(anyLong())).thenReturn(mockQuery);
-        when(mockQuery.limit(anyLong())).thenReturn(mockQuery);
-        when(mockQuery.orderBy(any(com.querydsl.core.types.OrderSpecifier[].class))).thenReturn(mockQuery);
-        when(mockQuery.fetch()).thenReturn(List.of(mockSalary));
+        when(queryFactory.selectFrom(any())).thenReturn((JPAQuery) mockSalaryQuery);
+        when(mockSalaryQuery.fetch()).thenReturn(List.of(mockSalary));
 
-       
-        JPAQuery<Long> mockCountQuery = mock(JPAQuery.class);
-        lenient().when(queryFactory.select(qSalary.count())).thenReturn(mockCountQuery);
-        lenient().when(mockCountQuery.from(qSalary)).thenReturn(mockCountQuery);
-        lenient().when(mockCountQuery.join(qSalary.employee, qEmployee)).thenReturn(mockCountQuery);
-        lenient().when(mockCountQuery.where(any(Predicate.class))).thenReturn(mockCountQuery);
+        lenient().when(queryFactory.select(any(Expression.class))).thenReturn((JPAQuery) mockCountQuery);
         lenient().when(mockCountQuery.fetchOne()).thenReturn(1L);
 
         Page<SalaryResponse> result = salaryService.getAllSalaries(filter, pageable);
@@ -252,5 +221,6 @@ class SalaryServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
         assertEquals(100L, result.getContent().get(0).getId());
+        assertEquals("2026-02", result.getContent().get(0).getMonth());
     }
 }
