@@ -26,8 +26,6 @@ class AuditServiceTest {
     @InjectMocks
     private AuditService auditService;
 
-    // --- TEST LOG AUDIT ---
-
     @Test
     void logAudit_Success() {
         // Arrange
@@ -43,7 +41,6 @@ class AuditServiceTest {
         auditService.logAudit(entityName, entityId, action, oldObj, newObj, actor);
 
         // Assert
-        // Kita gunakan ArgumentCaptor untuk menangkap objek Audit yang dikirim ke repository.save()
         ArgumentCaptor<Audit> auditCaptor = ArgumentCaptor.forClass(Audit.class);
         verify(auditRepository).save(auditCaptor.capture());
 
@@ -58,18 +55,14 @@ class AuditServiceTest {
 
     @Test
     void logAudit_Exception_ShouldNotThrow() {
-        // Arrange
         doThrow(new RuntimeException("DB Error")).when(auditRepository).save(any(Audit.class));
 
-        // Act & Assert
         assertDoesNotThrow(() -> 
             auditService.logAudit("TEST", 1L, "TEST", null, null, null)
         );
 
         verify(auditRepository).save(any(Audit.class));
     }
-
-    // --- TEST GET ALL ---
 
     @Test
     void getAllAudits_Success() {
@@ -85,8 +78,6 @@ class AuditServiceTest {
         assertEquals(1, result.size());
         verify(auditRepository).findAllByOrderByPerformedAtDesc();
     }
-
-    // --- TEST GET BY ENTITY ---
 
     @Test
     void getAuditsByEntity_Success() {
