@@ -8,7 +8,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import com.salary.backend_salary.dto.api.ApiResponse;
 import com.salary.backend_salary.dto.dashboard.DashboardEmployeeDTO;
+import com.salary.backend_salary.dto.dashboard.DashboardSalaryByDivisionDTO;
+import com.salary.backend_salary.dto.dashboard.DashboardSummaryDTO;
 import com.salary.backend_salary.enums.ApprovalStatus;
 import com.salary.backend_salary.service.dashboard.DashboardService;
 
@@ -27,11 +30,23 @@ public class DashboardController {
     @GetMapping("/recent-employees")
     @PreAuthorize("hasAnyRole('ADMIN','APPROVER')")
     public CompletableFuture<ResponseEntity<List<DashboardEmployeeDTO>>> getRecentEmployees(
-            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit
+            @RequestParam(defaultValue = "10") @Min(1) @Max(100) Integer limit  
     ) {
         return dashboardService
                 .getEmployees(ApprovalStatus.APPROVED, limit)
                 .thenApply(ResponseEntity::ok)
                 .exceptionally(ex -> ResponseEntity.internalServerError().build());
     }
+
+    @GetMapping("/salary-by-division")
+    public CompletableFuture<ResponseEntity<ApiResponse<List<DashboardSalaryByDivisionDTO>>>> getSalaryByDivision() {
+        return dashboardService.getSalaryByDivision()
+                .thenApply(data -> ResponseEntity.ok(ApiResponse.success(data)));
+   }
+
+   @GetMapping("/summary")
+        public CompletableFuture<ResponseEntity<ApiResponse<DashboardSummaryDTO>>> getSummary() {
+        return dashboardService.getSummary()
+                .thenApply(data -> ResponseEntity.ok(ApiResponse.success(data)));
+   }
 }

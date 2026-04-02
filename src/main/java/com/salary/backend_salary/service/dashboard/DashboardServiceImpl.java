@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.salary.backend_salary.dto.dashboard.DashboardEmployeeDTO;
+import com.salary.backend_salary.dto.dashboard.DashboardSalaryByDivisionDTO;
+import com.salary.backend_salary.dto.dashboard.DashboardSummaryDTO;
 import com.salary.backend_salary.entity.employee.Employee;
 import com.salary.backend_salary.enums.ApprovalStatus;
 import com.salary.backend_salary.repository.dashboard.DashboardRepository;
@@ -55,4 +57,19 @@ public class DashboardServiceImpl implements DashboardService {
                         : "N/A"
         );
     }
+
+    @Async("dashboardTaskExecutor")
+    @Override
+    @Transactional(readOnly = true)
+    public CompletableFuture<List<DashboardSalaryByDivisionDTO>> getSalaryByDivision() {
+        return CompletableFuture.completedFuture(dashboardRepository.findSalaryByDivision());
+    }
+    
+    @Async("dashboardTaskExecutor")
+    @Override
+    @Transactional(readOnly = true)
+    public CompletableFuture<DashboardSummaryDTO> getSummary() {
+        return CompletableFuture.completedFuture(dashboardRepository.findSummary());
+    }
+
 }
