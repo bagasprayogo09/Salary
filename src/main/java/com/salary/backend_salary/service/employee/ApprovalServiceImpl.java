@@ -2,6 +2,7 @@ package com.salary.backend_salary.service.employee;
 
 import java.time.LocalDateTime;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -9,6 +10,7 @@ import com.salary.backend_salary.dpo.employee.EmployeeDPO;
 import com.salary.backend_salary.entity.appusers.AppUser;
 import com.salary.backend_salary.entity.employee.Employee;
 import com.salary.backend_salary.enums.ApprovalStatus;
+import com.salary.backend_salary.dto.employee.EmployeeNotificationEvent; 
 import com.salary.backend_salary.mapper.EmployeeMapper;
 import com.salary.backend_salary.repository.employee.EmployeeRepository;
 import com.salary.backend_salary.repository.user.UserRepository;
@@ -28,6 +30,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final UserRepository userRepository;
     private final AuditService auditService;
     private final EmployeeMapper employeeMapper; 
+    
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -71,36 +75,53 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
         
+        String message = isApproved ? 
+            "Data karyawan (" + saved.getName() + ") telah DISETUJUI." : 
+            "Request " + currentStatus.name() + " untuk karyawan (" + saved.getName() + ") DITOLAK.";
+            
+        eventPublisher.publishEvent(new EmployeeNotificationEvent(
+            saved.getId(),
+            saved.getName(),
+            saved.getStatus(),
+            message,
+            "ADMIN" 
+        ));
+        
         return employeeMapper.toDpo(saved);
     }
 
    private EmployeeDPO handlePendingDelete(Employee employee, AppUser approver, boolean isApproved, Employee oldState) {
         String auditAction;
+        String notificationMessage;
         
         if (isApproved) {
             auditAction = "APPROVE_DELETE";
-    
             employee.setStatusemp("INACTIVE"); 
             employee.setStatus(ApprovalStatus.APPROVED); 
-            employee.setApprovedBy(approver.getId());
-            employee.setApprovedAt(LocalDateTime.now());
             
-            var saved = employeeRepository.save(employee);
-            
-            auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
-            return employeeMapper.toDpo(saved); 
-            
+            notificationMessage = "Request penghapusan karyawan (" + employee.getName() + ") telah DISETUJUI (Status menjadi INACTIVE).";
         } else {
             auditAction = "REJECT_DELETE";
-            employee.setStatus(ApprovalStatus.APPROVED);
-            employee.setApprovedBy(approver.getId());
-            employee.setApprovedAt(LocalDateTime.now());
+            employee.setStatus(ApprovalStatus.APPROVED); 
             
-            var saved = employeeRepository.save(employee);
-            
-            auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
-            return employeeMapper.toDpo(saved);
+            notificationMessage = "Request penghapusan karyawan (" + employee.getName() + ") DITOLAK. Data tetap dipertahankan.";
         }
+
+        employee.setApprovedBy(approver.getId());
+        employee.setApprovedAt(LocalDateTime.now());
+        
+        var saved = employeeRepository.save(employee);
+        auditService.logAudit(ENTITY_NAME, saved.getId(), auditAction, oldState, saved, approver);
+        
+        eventPublisher.publishEvent(new EmployeeNotificationEvent(
+            saved.getId(),
+            saved.getName(),
+            saved.getStatus(),
+            notificationMessage,
+            "ADMIN"
+        ));
+
+        return employeeMapper.toDpo(saved);
     }
 
     private Employee createAuditSnapshot(Employee src) {

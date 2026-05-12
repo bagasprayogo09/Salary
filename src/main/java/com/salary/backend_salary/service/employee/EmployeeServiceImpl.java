@@ -1,6 +1,7 @@
 package com.salary.backend_salary.service.employee;
 
 import java.time.LocalDateTime;
+import org.springframework.context.ApplicationEventPublisher;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,8 @@ import com.salary.backend_salary.vm.employee.EmployeeVM;
 
 import lombok.RequiredArgsConstructor;
 
+import com.salary.backend_salary.dto.employee.EmployeeNotificationEvent;
+
 @Service
 @RequiredArgsConstructor
 public class EmployeeServiceImpl implements EmployeeService {
@@ -36,6 +39,8 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final UserRepository userRepository;
     private final AuditService auditService;
     private final EmployeeMapper employeeMapper; 
+
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -53,7 +58,17 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         var saved = employeeRepository.save(employee);
         
+       
+
         auditService.logAudit(MODULE_EMPLOYEE, saved.getId(), "REQUEST_CREATE", null, saved, actor);
+
+         eventPublisher.publishEvent(new EmployeeNotificationEvent(
+            saved.getId(),
+            saved.getName(),
+            ApprovalStatus.PENDING_CREATE,
+            "Karyawan baru(" + saved.getName() + ") menunggu persetujuan.",
+            "APPROVER"
+        ));
 
         return employeeMapper.toDpo(saved);
     }
@@ -87,6 +102,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         auditService.logAudit(MODULE_EMPLOYEE, updated.getId(), "REQUEST_UPDATE", oldState, updated, actor);
 
+            eventPublisher.publishEvent(new EmployeeNotificationEvent(
+                updated.getId(),
+                updated.getName(),
+                employee.getStatus(),
+                "Perubahan data karyawan(" + updated.getName() + ") menunggu persetujuan.",
+                "APPROVER"
+            ));
+
         return employeeMapper.toDpo(updated);
     }
 
@@ -107,6 +130,14 @@ public class EmployeeServiceImpl implements EmployeeService {
         var saved = employeeRepository.save(employee);
         
         auditService.logAudit(MODULE_EMPLOYEE, id, "REQUEST_DELETE", oldState, saved, actor);
+
+            eventPublisher.publishEvent(new EmployeeNotificationEvent(
+                saved.getId(),
+                saved.getName(),
+                ApprovalStatus.PENDING_DELETE,
+                "Penghapusan data karyawan(" + saved.getName() + ") menunggu persetujuan.",
+                "APPROVER"
+            ));
     }
 
     @Override
